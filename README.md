@@ -28,20 +28,47 @@ A professional, RAG-powered AI financial assistant designed for institutional-gr
   - **Vector**: Chroma DB
 - **Frontend**: Thymeleaf, Modern Vanilla CSS, Smart JS Polling
 
+## 🤖 AI Infrastructure & Spring AI Integration
+
+The Equity Analyst Terminal is built using **Spring AI**, leveraging its high-level abstractions to create a robust and model-agnostic RAG system.
+
+### 1. Unified Model Access
+The system uses the `ChatClient` builder to swap between **Google Gemini** and **Ollama** dynamically based on environment configuration. This is managed in `AIConfig.kt`.
+
+### 2. Retrieval-Augmented Generation (RAG)
+- **Vector Intelligence**: We use `ChromaVectorStore` paired with `GoogleGenAiEmbeddingModel` to index and retrieve financial document segments.
+- **Pipeline Enrichment**: The `RetrievalAugmentationAdvisor` automatically intercepts user queries, fetches the Top-K relevant context from Chroma, and injects it into the system prompt.
+- **Semantic Filtering**: Implements `similarityThreshold` to ensure only highly relevant data informs the AI's reasoning.
+
+### 3. Agentic Reasoning & Self-Correction
+The core logic in `RagConversationService.kt` implements a **Reflection Loop**:
+- **Reasoning**: The model first thinks through the financial data.
+- **Critique**: The model performs an internal audit of its own logic.
+- **Structured Output**: Uses `BeanOutputConverter` to guarantee response integrity via a strict JSON schema.
+
+### 4. Tool Calling (Function Calling)
+The AI is empowered with real-time capabilities via the `@Tool` annotation.
+- **Live Stock Prices**: The `AgentTools.kt` provides the LLM with a direct interface to the **Finnhub API**, allowing it to fetch real-time market data when the user question warrants it.
+
+### 5. Automated Quality Auditing (LLM-as-a-Judge)
+Every response is validated asynchronously by a secondary "Auditor" process:
+- **Fact Checking**: Uses the `FactCheckingEvaluator` from Spring AI to compare the AI's final answer against the retrieved source documents.
+- **Persistence**: Results are stored in H2 and displayed on the terminal as "Validated" or "Discrepancy" via background polling.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 - JDK 21
-- [Ollama](https://ollama.com/) (running locally for evaluation)
-- Google Cloud API Key (for Gemini models) --currently not used
+- [Ollama](https://ollama.com/) (running locally for evaluation: `ollama run llama3.2:3b`)
+- Google Cloud AI Key (for Gemini models)
+- Finnhub API Key (for real-time stock data)
 
 ### Configuration
 Update your `src/main/resources/application.properties` with your credentials:
 ```properties
 spring.ai.google.genai.api-key=${GOOGLE_API_KEY}
 spring.ai.ollama.base-url=http://localhost:11434
-```
-
+finnhub.api.key=${FINNHUB_KEY}
 ### Running the Application
 ```bash
 ./gradlew bootRun
@@ -61,3 +88,4 @@ src/main/kotlin/com/homework/capstone/
 └── model/            # Domain Entities
 ---
 *Built for excellence in financial AI.*
+
