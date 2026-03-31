@@ -63,27 +63,39 @@ class RagConversationService(
 
         return try {
             var result: ChatResult? = null
-            val retries = 0
+            var retries = 0
             val lastFeedback: String? = null
 
             while (retries <= maxRetries) {
+                retries++
                 val agentResponse = executeReasoningAgent(chatId, userQuestion, lastFeedback)
 
                 log.info("=== [Attempt {}] REASONING ===\n{}", retries, agentResponse.reasoning)
                 log.info("=== [Attempt {}] CRITIQUE  ===\n{}", retries, agentResponse.critique)
                 log.info("=== [Attempt {}] FINAL ANSWER ===\n{}", retries, agentResponse.finalAnswer)
 
-               evaluateResponse(userQuestion, agentResponse.finalAnswer)
-
-                result = ChatResult(
-                    answer        = agentResponse.finalAnswer,
-                    reasoning     = agentResponse.reasoning,
-                    critique      = agentResponse.critique,
-                    evaluation    = null,
-                    selfCorrected = agentResponse.selfCorrected.toBooleanStrictOrNull() ?: false,
-                    retriesUsed   = retries
-                )
-                break
+               val eval = evaluateResponse(userQuestion, agentResponse.finalAnswer)
+                if(eval.isPass) {
+                    result = ChatResult(
+                        answer        = agentResponse.finalAnswer,
+                        reasoning     = agentResponse.reasoning,
+                        critique      = agentResponse.critique,
+                        selfCorrected = agentResponse.selfCorrected.toBooleanStrictOrNull() ?: false,
+                        retriesUsed   = retries
+                    )
+                    break
+                }
+                // last run, return response anyway
+                if(retries == maxRetries) {
+                    result = ChatResult(
+                        answer        = agentResponse.finalAnswer,
+                        reasoning     = agentResponse.reasoning,
+                        critique      = agentResponse.critique,
+                        selfCorrected = agentResponse.selfCorrected.toBooleanStrictOrNull() ?: false,
+                        retriesUsed   = retries
+                    )
+                    break
+                }
             }
 
             result!!
@@ -121,14 +133,16 @@ class RagConversationService(
             "\nYour previous answer was wrong: \"$priorFeedback\". Fix it.\n" else ""
 
         val priceInstruction = if (PRICE_KEYWORDS.any { userQuestion?.lowercase()?.contains(it) == true })
-            "A tool will provide the live price — use that value directly as your final answer. Do not say you do not know."
+            "A tool will provide the current stock price — use that value directly as your final answer. Do not say you do not know."
         else ""
 
         return """
         You are a financial analyst. Answer using only the provided context.
-        First reason about the question, then critique only the accuracy of your answer (not the format), then give a final response.$correction
+        First reason about the question, then critique only the accuracy of your answer (not the format), then give a final response.
+        Provide the 'finalAnswer' as at least one full sentence.
+        $correction
         $priceInstruction
-        Output a single JSON object. No markdown, no explanation outside the JSON.
+        IMPORTANT: Output a single JSON object. No markdown, no explanation outside the JSON.
         ${outputConverter.format}
         """.trimIndent()
     }
@@ -175,7 +189,7 @@ class RagConversationService(
         .documentRetriever(
             VectorStoreDocumentRetriever.builder()
                 .vectorStore(vectorStore)
-                .topK(3)
+                .topK(2)
                 .similarityThreshold(threshold)
                 .build()
         )
@@ -183,12 +197,12 @@ class RagConversationService(
 
     private fun buildMemoryAdvisor() = MessageChatMemoryAdvisor.builder(chatMemory).build()
 
-    private fun evaluateResponse(question: String, answer: String) {
+    private fun evaluateResponse(question: String, answer: String): EvaluationResponse {
         val docs = runCatching {
             vectorStore.similaritySearch(
                 SearchRequest.builder()
                     .query(question)
-                    .topK(3)
+                    .topK(2)
                     .similarityThreshold(threshold)
                     .build()
             )
@@ -196,9 +210,8 @@ class RagConversationService(
 
         if (docs.isEmpty()) {
             log.warn("No docs retrieved — skipping async evaluation")
-            return
+            return EvaluationResponse(isPass = false, reasoning = "No docs retrieved")
         }
-        val context = docs.joinToString("\n---\n") { it.formattedContent }
-        ragEvaluationService.evaluateAgentResponse(question, context, answer)
+        return ragEvaluationService.evaluateAgentResponse(question, docs, answer)
     }
 }

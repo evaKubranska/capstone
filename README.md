@@ -14,7 +14,7 @@ A professional, RAG-powered AI financial assistant designed for institutional-gr
 - **Reflection Loops**: The AI performs internal **Reasoning** (Chain of Thought) and **Self-Critique** before delivering final memos.
 
 ### 3. Automated Quality Auditing
-- **AI-in-the-Loop Evaluation**: An asynchronous "Auditor" model validates every response for factual accuracy.
+- **AI-in-the-Loop Evaluation**: An "Auditor" model validates every response for factual accuracy.
 - **Verification Ribbons**: Every answer is visually flagged for verification status (Validated vs. Discrepancy).
 
 ## 🛠️ Tech Stack
@@ -22,7 +22,7 @@ A professional, RAG-powered AI financial assistant designed for institutional-gr
 - **Backend**: Spring Boot 4.0.5, Kotlin 2.2.21
 - **AI Framework**: [Spring AI](https://spring.io/projects/spring-ai) (2.0.0-M3)
 - **Models**:
-  -Ollama (llama3.2:3b)
+  -Ollama (llama3.2:3b)  and Gemini Embedding 1
 - **Database**: 
   - **Relational**: H2 (Metadata & Evaluations)
   - **Vector**: Chroma DB
@@ -55,15 +55,9 @@ src/main/kotlin/com/homework/capstone/
 ├── controller/       # REST Endpoints (Chat, Upload, Stats)
 ├── service/          # Core Logistics
 │   ├── RagConversationService # Reflection & Chat flow
-│   ├── RagEvaluationService   # Asynchronous AI Auditing
+│   ├── RagEvaluationService   # AI Auditing
 │   └── VectorDatabaseService  # Document Context Management
 ├── repository/       # JPA Access for Evaluations
 └── model/            # Domain Entities
-```
-
-## 📊 Performance Indicators
-
-The terminal includes a background polling mechanism that automatically updates the **Quality Metrics** dashboard every 15 seconds, or immediately upon completion of an asynchronous evaluation cycle.
-
 ---
 *Built for excellence in financial AI.*

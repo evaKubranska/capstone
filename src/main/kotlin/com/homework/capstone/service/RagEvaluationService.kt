@@ -22,44 +22,37 @@ class RagEvaluationService(
     private val log = LoggerFactory.getLogger(RagEvaluationService::class.java)
     private val evaluator = RelevancyEvaluator(chatClientBuilder)
 
-    @Async
     fun evaluateAgentResponse(
         userQuestion: String,
-        retrievedContext: String,
+        docs: List<Document>,
         aiAnswer: String
-    ): CompletableFuture<EvaluationResponse> {
+    ): EvaluationResponse {
         val request = EvaluationRequest(
             userQuestion,
-            listOf(Document(retrievedContext)),
+            docs,
             aiAnswer
         )
-        log.info("Async evaluation started")
 
-        // 1. Run the evaluation, but don't exit early on failure
         val (isPass, feedback) = runCatching { 
             val result = evaluator.evaluate(request)
-            log.info("Evaluation result:  $result")
             result.isPass to result.feedback
         }.getOrElse { e ->
             log.warn("Evaluator threw exception — using fallback pass: {}", e.message)
             true to "Evaluator unavailable: ${e.message}"
         }
 
-
-        // 2. Always persist the result so stats counts increment correctly
         runCatching {
             evaluationRepository.save(
                 Evaluation(
                     userQuestion     = userQuestion,
                     aiAnswer         = aiAnswer,
-                    retrievedContext = retrievedContext,
+                    retrievedContext = docs.joinToString("\n---\n") { it.formattedContent },
                     isPass           = isPass,
                     reasoning        = feedback
                 )
             )
         }.onFailure { log.error("Failed to persist evaluation", it) }
-        log.info("Async evaluation $isPass with feedback $feedback")
-        return CompletableFuture.completedFuture(EvaluationResponse(isPass, feedback))
+        return EvaluationResponse(isPass, feedback)
     }
 
     fun getStatistics(): Map<String, Any> {
