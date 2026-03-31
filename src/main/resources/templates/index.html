@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Equity Analyst Terminal | AI Assistant</title>
+    <!-- Modern Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Institutional Financial Palette */
+            --bg-main: #f8fafc;
+            --sidebar-bg: #0f172a; /* Deep Navy */
+            --panel-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-on-navy: #f1f5f9;
+            --accent-blue: #2563eb;
+            --accent-emerald: #10b981; /* Performance/Pass */
+            --accent-crimson: #e11d48; /* Risk/Fail */
+            --accent-amber: #f59e0b;   /* Insight/Wait */
+            --border-light: #e2e8f0;
+            --border-navy: #1e293b;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+        }
+
+        /* --- Sidebar Redesign --- */
+        .sidebar {
+            background: var(--sidebar-bg);
+            color: var(--text-on-navy);
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-navy);
+        }
+
+        .sidebar-header {
+            margin-bottom: 40px;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .sidebar-section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 24px 0 12px 0;
+        }
+
+        /* --- Source Document Upload --- */
+        .upload-area {
+            border: 1px dashed #334155;
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            background: rgba(30, 41, 59, 0.5);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent-blue);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .upload-area input[type="file"] { display: none; }
+
+        .upload-btn {
+            background-color: var(--accent-blue);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 16px;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .upload-btn:hover { background-color: #1d4ed8; }
+        .upload-btn:active { transform: scale(0.98); }
+        .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #file-name-display {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        /* --- Metric Cards --- */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: auto;
+        }
+
+        .metric-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid #334155;
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        /* --- Main Chat Stage --- */
+        .stage {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+            position: relative;
+        }
+
+        .stage-header {
+            padding: 20px 32px;
+            background: white;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stage-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .terminal-status {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #ecfdf5;
+            border-radius: 20px;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .message {
+            max-width: 85%;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* User Message: Clean & Right-aligned */
+        .user-message {
+            align-self: flex-end;
+            background: var(--accent-blue);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 18px 18px 2px 18px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Analyst Message: Structured & Formal */
+        .ai-message {
+            align-self: flex-start;
+            background: white;
+            color: var(--text-primary);
+            padding: 20px;
+            border-radius: 18px 18px 18px 2px;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* --- Insight Panels (Reasoning/Critique) --- */
+        .insight-panel {
+            margin-top: 16px;
+            border: 1px solid #f1f5f9;
+            border-radius: 10px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+
+        .insight-toggle {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f1f5f9;
+            transition: color 0.2s;
+        }
+
+        .insight-toggle:hover { color: var(--accent-blue); }
+
+        .insight-body {
+            display: none;
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border-top: 1px solid #f1f5f9;
+            white-space: pre-wrap;
+        }
+
+        .insight-body.visible { display: block; }
+
+        .evaluation-ribbon {
+            margin-top: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ribbon-pass { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .ribbon-fail { background: #fff1f2; color: #9f1239; border: 1px solid #fecdd3; }
+
+        /* --- Input Area --- */
+        .input-wrapper {
+            padding: 24px 32px;
+            background: white;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .input-bar {
+            background: var(--bg-main);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .input-bar:focus-within {
+            border-color: var(--accent-blue);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 12px 0;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+
+        .action-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .action-btn:hover { background: #1d4ed8; }
+
+        /* Custom Scrollbar for Terminal look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        #loading {
+            margin: 0 32px 16px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: none;
+        }
+
+        .dot-flashing {
+            position: relative;
+            width: 6px;
+            height: 6px;
+            border-radius: 5px;
+            background-color: var(--accent-blue);
+            color: var(--accent-blue);
+            animation: dot-flashing 1s infinite linear alternate;
+            animation-delay: .5s;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes dot-flashing {
+            0% { background-color: var(--accent-blue); }
+            50%, 100% { background-color: #e2e8f0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- Sidebar: Controls & Metrics -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                Equity Terminal
+            </h1>
+        </div>
+
+        <div class="sidebar-section-label">Source Document</div>
+        <label class="upload-area" for="pdfFile">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <div style="font-size: 0.85rem; font-weight: 500;">Click to ingest PDF</div>
+            <input type="file" id="pdfFile" accept="application/pdf" onchange="updateFileName()" />
+            <div id="file-name-display">No dataset selected</div>
+        </label>
+        
+        <button class="upload-btn" id="uploadBtn" onclick="uploadPdf()">Initialize Dataset</button>
+        <p id="upload-status" style="font-size: 0.75rem; margin-top: 12px; text-align: center;"></p>
+
+        <div class="sidebar-section-label">Quality Metrics</div>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Judged Total</div>
+                <div id="stat-total" class="metric-value">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Fact Accuracy</div>
+                <div id="stat-pass-rate" class="metric-value" style="color: var(--accent-emerald)">0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Detected Failures</div>
+                <div id="stat-failed" class="metric-value" style="color: var(--accent-crimson)">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Stage -->
+    <div class="stage">
+        <div class="stage-header">
+            <h2>Analyst Workspace</h2>
+            <div class="terminal-status">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>
+                LOCAL AI SECURE
+            </div>
+        </div>
+
+        <div class="chat-box" id="chatBox">
+            <div class="message ai-message">Analyst ready. Please provide a financial document to begin the evaluation process.</div>
+        </div>
+
+        <div id="loading">Agent processing <div class="dot-flashing"></div></div>
+
+        <div class="input-wrapper">
+            <div class="input-bar">
+                <input type="text" id="questionInput" placeholder="Enter inquiry (e.g., 'Analyze Q3 revenue drivers')..." onkeypress="handleEnter(event)" autocomplete="off" />
+                <button class="action-btn" onclick="askQuestion()">Execute Inquiry</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentChatId = null; 
+
+    function updateFileName() {
+        const fileInput = document.getElementById('pdfFile');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.textContent = fileInput.files[0].name;
+            fileNameDisplay.style.color = "var(--accent-blue)";
+        } else {
+            fileNameDisplay.textContent = 'No dataset selected';
+            fileNameDisplay.style.color = "var(--text-secondary)";
+        }
+    }
+
+    async function uploadPdf() {
+        const fileInput = document.getElementById('pdfFile');
+        const statusText = document.getElementById('upload-status');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        if (!fileInput.files[0]) {
+            statusText.innerText = "Please select a file first.";
+            statusText.style.color = "#ef4444"; // red-500
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        statusText.innerText = "Uploading and processing...";
+        statusText.style.color = "var(--text-muted)";
+        uploadBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.text();
+
+            if (response.ok) {
+                statusText.innerText = "✅ " + result;
+                statusText.style.color = "#10b981"; // green-500
+                appendMessage("Document successfully uploaded and processed. What would you like to know?", "ai-message");
+            } else {
+                statusText.innerText = "❌ " + result;
+                statusText.style.color = "#ef4444";
+            }
+        } catch (error) {
+            statusText.innerText = "❌ Upload failed.";
+            statusText.style.color = "#ef4444";
+        } finally {
+            uploadBtn.disabled = false;
+        }
+    }
+
+    async function askQuestion() {
+        const inputField = document.getElementById('questionInput');
+        const question = inputField.value.trim();
+        if (!question) return;
+
+        appendMessage(question, "user-message");
+        inputField.value = ""; 
+        document.getElementById('loading').style.display = "block";
+
+        try {
+            let url = `/api/chat?question=${encodeURIComponent(question)}`;
+            if (currentChatId) {
+                url += `&chatId=${currentChatId}`;
+            }
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            currentChatId = data.chatId;
+            appendMessage(data.answer, "ai-message", data.evaluation, data.reasoning, data.critique);
+            // Kick off polling to catch the async evaluation result
+            pollStatsUntilChanged();
+
+        } catch (error) {
+            appendMessage("Sorry, I encountered an error connecting to the server.", "ai-message");
+        } finally {
+            document.getElementById('loading').style.display = "none";
+        }
+    }
+
+    // Track last known total so we can detect when the async evaluation lands
+    let _lastKnownTotal = 0;
+    let _pollTimer = null;
+
+    async function updateStats() {
+        try {
+            const resp = await fetch('/api/evaluations/stats');
+            const stats = await resp.json();
+            const total = stats.totalEvaluations;
+            // The backend returns a formatted string like "85.0%" or "n/a"
+            const passRateVal = stats.passRate;
+            
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-pass-rate').innerText = passRateVal;
+            document.getElementById('stat-failed').innerText = stats.failedEvaluations;
+            _lastKnownTotal = total;
+            return total;
+        } catch (e) {
+            console.error("Failed to fetch stats", e);
+            return _lastKnownTotal;
+        }
+    }
+
+    /**
+     * Poll stats every `interval` ms for up to `duration` ms, or until the
+     * total evaluation count increases (meaning the @Async evaluation finished).
+     */
+    function pollStatsUntilChanged(duration = 20000, interval = 2000) {
+        // Cancel any previous poll cycle
+        if (_pollTimer) clearInterval(_pollTimer);
+
+        const baseline = _lastKnownTotal;
+        const deadline = Date.now() + duration;
+
+        _pollTimer = setInterval(async () => {
+            const current = await updateStats();
+            if (current > baseline || Date.now() >= deadline) {
+                clearInterval(_pollTimer);
+                _pollTimer = null;
+            }
+        }, interval);
+    }
+
+    // Background poll every 15 seconds so stats stay fresh even without chat
+    setInterval(updateStats, 15000);
+
+    function appendMessage(text, className, evaluation = null, reasoning = '', critique = '') {
+        const chatBox = document.getElementById('chatBox');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${className}`;
+        
+        // Main answer text
+        const textSpan = document.createElement('div');
+        textSpan.innerText = text;
+        msgDiv.appendChild(textSpan);
+
+        // --- Reasoning & Reflection Panel (Financial Insight Style) ---
+        if (reasoning || critique) {
+            const panel = document.createElement('div');
+            panel.className = 'insight-panel';
+
+            const toggle = document.createElement('div');
+            toggle.className = 'insight-toggle';
+            toggle.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12.01" y2="16"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+                Analyst Methodology & Reflection
+            `;
+
+            const body = document.createElement('div');
+            body.className = 'insight-body';
+
+            if (reasoning) {
+                const sec = document.createElement('div');
+                sec.style.marginBottom = "12px";
+                sec.innerHTML = `<div style="font-weight:700; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">[Internal Reasoning]</div><div>${reasoning.replace(/</g,'&lt;')}</div>`;
+                body.appendChild(sec);
+            }
+
+            if (critique) {
+                const sec = document.createElement('div');
+                sec.innerHTML = `<div style="font-weight:700; font-size: 0.7rem; color: #f59e0b; text-transform: uppercase; margin-bottom: 4px;">[Self-Critique]</div><div>${critique.replace(/</g,'&lt;')}</div>`;
+                body.appendChild(sec);
+            }
+
+            toggle.addEventListener('click', () => {
+                const isVisible = body.classList.toggle('visible');
+            });
+
+            panel.appendChild(toggle);
+            panel.appendChild(body);
+            msgDiv.appendChild(panel);
+        }
+
+        // --- Factual Evaluation Ribbon ---
+        if (evaluation) {
+            const ribbon = document.createElement('div');
+            ribbon.className = `evaluation-ribbon ${evaluation.isPass ? 'ribbon-pass' : 'ribbon-fail'}`;
+            
+            const icon = evaluation.isPass 
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+            
+            ribbon.innerHTML = `
+                ${icon}
+                <span>FACTUAL VERIFICATION: ${evaluation.isPass ? 'VALIDATED' : 'DISCREPANCY DETECTED'}</span>
+            `;
+
+            if (evaluation.reasoning) {
+                const detail = document.createElement('div');
+                detail.style.fontSize = "0.75rem";
+                detail.style.marginTop = "4px";
+                detail.style.opacity = "0.8";
+                detail.innerText = "Auditor Note: " + evaluation.reasoning;
+                ribbon.appendChild(detail);
+                ribbon.style.flexDirection = "column";
+                ribbon.style.alignItems = "flex-start";
+            }
+            msgDiv.appendChild(ribbon);
+        }
+
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Initial stats fetch
+    updateStats();
+
+    function handleEnter(event) {
+        if (event.key === "Enter") {
+            askQuestion();
+        }
+    }
+</script>
+
+</body>
+</html>

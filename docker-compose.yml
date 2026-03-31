@@ -1,0 +1,46 @@
+services:
+  # --------------------------------------------------------
+  # 1. ChromaDB Vector Store (For your RAG Embeddings)
+  # --------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+
+  # --------------------------------------------------------
+  # 2. Main Ollama Server (Runs the LLMs)
+  # --------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # --------------------------------------------------------
+  # 3. Ollama Initializer (Automatically downloads Llama 3.1)
+  # --------------------------------------------------------
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama-init
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: [ "/bin/sh", "-c" ]   # <-- THIS IS THE MAGIC LINE THAT FIXES IT
+    command: >
+      "echo 'Waiting for Ollama server to start...' &&
+      sleep 5 && 
+      echo 'Pulling Llama 3.2 (3B) model for fast inference...' &&
+      ollama pull llama3.2:3b &&
+      echo 'Model pulled successfully! You can now start Spring Boot.'"
+
+volumes:
+  chroma-data:
+  ollama_data:
